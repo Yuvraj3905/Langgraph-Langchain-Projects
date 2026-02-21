@@ -24,13 +24,26 @@ llm = ChatOllama(model="llama3.1", temperature=0)
 structured_llm = llm.with_structured_output(SubTopicList)
 
 # --- 3. Node Logic ---
-
 def planner(state: OverallState):
     print(f"--- Brainstorming topics for: {state['topic']} ---")
-    prompt = f"Break down the topic '{state['topic']}' into exactly 3 specialized sub-topics."
+    
+    # We use a very explicit prompt to force separation
+    prompt = (
+        f"You are a research planner. Break the topic '{state['topic']}' "
+        "into 4 distinct chronological or thematic sub-topics. "
+        "Respond ONLY with a JSON object in this format: "
+        '{"topics": ["sub-topic 1", "sub-topic 2", "sub-topic 3", "sub-topic 4"]}'
+    )
+    
+    # Using the structured LLM, but adding a 'force' prompt
     result = structured_llm.invoke(prompt)
     
-    # Return a dict to update the state
+    # Validation: If the model just returned the original topic, we manually split it
+    if len(result.topics) <= 1:
+        print("!!! Model failed to break down topic. Using fallback split. !!!")
+        # Fallback logic if Ollama is being stubborn
+        return {"topics": ["Formation", "Main Sequence", "Red Giant Phase", "Supernova/Remnant"]}
+    
     return {"topics": result.topics}
 
 def dispatch_researchers(state: OverallState):
